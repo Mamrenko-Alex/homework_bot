@@ -30,9 +30,7 @@ HOMEWORK_STATUSES = {
 
 
 def send_message(bot, message):
-    ''' Отправляет сообщение в Telegram чат, определяемый переменной
-    окружения TELEGRAM_CHAT_ID. Принимает на вход два параметра:
-    экземпляр класса Bot и строку с текстом сообщения.'''
+    """Отправка сообщения о изменении статуса."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.info(
@@ -44,10 +42,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(current_timestamp):
-    ''' Делает запрос к единственному эндпоинту API-сервиса.
-    В качестве параметра функция получает временную метку.
-    В случае успешного запроса должна вернуть ответ API,
-    преобразовав его из формата JSON к типам данных Python.'''
+    """Отправка запроса к API практикума."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     try:
@@ -62,11 +57,7 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
-    ''' Проверяет ответ API на корректность. В качестве параметра функция
-        получает ответ API, приведенный к типам данных Python. Если ответ
-        API соответствует ожиданиям, то функция должна вернуть список
-        домашних работ (он может быть и пустым), доступный в ответе API
-        по ключу 'homeworks'.'''
+    """Проверка статуса домашнего задания."""
     try:
         list_homeworks = response['homeworks']
     except KeyError:
@@ -79,11 +70,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    ''' Извлекает из информации о конкретной домашней работе статус
-        этой работы. В качестве параметра функция получает только один
-        элемент из списка домашних работ. В случае успеха, функция возвращает
-        подготовленную для отправки в Telegram строку, содержащую один из
-        вердиктов словаря HOMEWORK_STATUSES.'''
+    """Извлекает из информации о конкретной домашней работе статус этой работы."""
     try:
         homework_name = homework['homework_name']
     except KeyError:
@@ -101,9 +88,7 @@ def parse_status(homework):
 
 
 def check_tokens():
-    ''' Проверяет доступность переменных окружения, которые необходимы 
-        для работы программы. Если отсутствует хотя бы одна переменная 
-        окружения — функция должна вернуть False, иначе — True.'''
+    """Проверка наличия всех токенов."""
     if PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
         return True
     return False
