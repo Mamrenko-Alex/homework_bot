@@ -70,18 +70,18 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлекает из информации о конкретной домашней работе статус этой работы."""
+    """Извлекает статус о конкретной домашней работе."""
     try:
         homework_name = homework['homework_name']
     except KeyError:
-        logging.error(f'В словаре нет ключа \'homework_name\'')
+        logging.error('В словаре нет ключа \'homework_name\'')
     try:
         homework_status = homework['status']
     except KeyError:
-        logging.error(f'В словаре нет ключа \'status\'')
+        logging.error('В словаре нет ключа \'status\'')
     if homework_status not in HOMEWORK_STATUSES:
         logging.error(
-            f'Недокументированный статус домашней работы'
+            'Недокументированный статус домашней работы'
         )
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -101,7 +101,7 @@ def main():
         logging.critical(
             'Отсутствет одна или несоколько обязательных '
             'переменных окружения во время запуска бота'
-        )        
+        )
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     while True:
