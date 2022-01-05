@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
@@ -51,39 +52,41 @@ def get_api_answer(current_timestamp):
             headers=HEADERS,
             params=params
         )
+        if response.status_code != HTTPStatus.OK:
+            raise Exception(f'ENDPOINT недоступен. Код ответа {response.status_code}')
     except Exception as error:
         logging.error(f'ENDPOINT недоступен - {error}')
+        raise Exception(f'ENDPOINT недоступен. Код ответа {response.status_code}')
     return response.json()
 
 
 def check_response(response):
-    """Проверка статуса домашнего задания."""
+    """Извлекает информацию о последней домашней работе."""
     try:
         list_homeworks = response['homeworks']
-    except KeyError:
-        logging.error('В словаре нет ключа \'homeworks\'')
-    try:
         homework = list_homeworks[0]
+    except KeyError:
+        logging.error('В словаре нет нужного ключа')
+        raise KeyError('В словаре нет нужного ключа')
     except IndexError:
-        logging.error('Нет домашних работ за этот период')
+        logging.error('Список пуст')
+        raise IndexError('Список пуст')
     return homework
 
 
 def parse_status(homework):
     """Извлекает статус о конкретной домашней работе."""
+    if 'homework_name' not in homework:
+        raise KeyError('Отсутствует ключ homework_name')
+    if 'status' not in homework:
+        raise KeyError('Отсутствует ключ status')
+    homework_name = homework['homework_name']
+    homework_status = homework['status']
     try:
-        homework_name = homework['homework_name']
+        verdict = HOMEWORK_STATUSES[homework_status]
     except KeyError:
-        logging.error('В словаре нет ключа \'homework_name\'')
-    try:
-        homework_status = homework['status']
-    except KeyError:
-        logging.error('В словаре нет ключа \'status\'')
-    if homework_status not in HOMEWORK_STATUSES:
-        logging.error(
-            'Недокументированный статус домашней работы'
-        )
-    verdict = HOMEWORK_STATUSES[homework_status]
+        logging.error('Недокументированный статус домашней работы')
+        raise Exception('Недокументированный статус домашней работы')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
