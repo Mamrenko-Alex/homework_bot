@@ -53,10 +53,12 @@ def get_api_answer(current_timestamp):
             params=params
         )
         if response.status_code != HTTPStatus.OK:
-            raise Exception(f'ENDPOINT недоступен. Код ответа {response.status_code}')
+            raise Exception('ENDPOINT недоступен.'
+                            f' Код ответа {response.status_code}')
     except Exception as error:
         logging.error(f'ENDPOINT недоступен - {error}')
-        raise Exception(f'ENDPOINT недоступен. Код ответа {response.status_code}')
+        raise Exception('ENDPOINT недоступен.'
+                        f'Код ответа {response.status_code}')
     return response.json()
 
 
