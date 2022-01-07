@@ -59,7 +59,6 @@ def send_message(bot, message):
 def get_api_answer(current_timestamp):
     """Отправка запроса к API практикума."""
     timestamp = current_timestamp or int(time.time())
-    #1638533236
     params = {'from_date': timestamp}
     try:
         response = requests.get(
