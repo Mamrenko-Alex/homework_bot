@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from http import HTTPStatus
+from logging.handlers import RotatingFileHandler
 
 import requests
 import telegram
@@ -14,6 +15,18 @@ logging.basicConfig(
     filename='main.log',
     level=logging.INFO,
 )
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler(
+    'main.log',
+    maxBytes=50000000,
+    backupCount=5
+)
+logger.addFilter(handler)
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s %(message)s'
+)
+handler.setFormatter(formatter)
 
 PRACTICUM_TOKEN = os.getenv('TOKEN_PRACTICUM')
 TELEGRAM_TOKEN = os.getenv('TOKEN_TELEGRAM')
@@ -23,7 +36,7 @@ RETRY_TIME = 60 * 10
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDIKTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
@@ -34,17 +47,19 @@ def send_message(bot, message):
     """Отправка сообщения о изменении статуса."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.info(
+        logger.info(
             'Сообщение успешно отправлено. '
             f'\nChat - {TELEGRAM_CHAT_ID} \nMessage - {message}'
         )
     except Exception:
-        logging.error('Ошибка при отправке сообщения в телеграм')
+        logger.error('Ошибка при отправке сообщения в телеграм')
+        raise('Ошибка при отправке сообщения в телеграм')
 
 
 def get_api_answer(current_timestamp):
     """Отправка запроса к API практикума."""
     timestamp = current_timestamp or int(time.time())
+    #1638533236
     params = {'from_date': timestamp}
     try:
         response = requests.get(
@@ -53,13 +68,19 @@ def get_api_answer(current_timestamp):
             params=params
         )
         if response.status_code != HTTPStatus.OK:
+            logger.error('Статус ответа response не равен 200. '
+                         f'response.status_code={response.status_code}')
             raise Exception('ENDPOINT недоступен.'
                             f' Код ответа {response.status_code}')
     except Exception as error:
-        logging.error(f'ENDPOINT недоступен - {error}')
+        logger.error(f'ENDPOINT недоступен - {error}')
         raise Exception('ENDPOINT недоступен.'
                         f'Код ответа {response.status_code}')
-    return response.json()
+    try:
+        return response.json()
+    except Exception:
+        logger.error('Ответ API не соответствует ожиданию')
+        raise Exception('Ответ API не соответствует ожиданию')
 
 
 def check_response(response):
@@ -68,11 +89,11 @@ def check_response(response):
         list_homeworks = response['homeworks']
         homework = list_homeworks[0]
     except KeyError:
-        logging.error('В словаре нет нужного ключа')
+        logger.error('В словаре нет нужного ключа')
         raise KeyError('В словаре нет нужного ключа')
     except IndexError:
-        logging.error('Список пуст')
-        raise IndexError('Список пуст')
+        logger.error('Список домашних работ пуст')
+        raise IndexError('Список домашних работ пуст')
     return homework
 
 
@@ -85,25 +106,28 @@ def parse_status(homework):
     homework_name = homework['homework_name']
     homework_status = homework['status']
     try:
-        verdict = HOMEWORK_STATUSES[homework_status]
+        verdict = HOMEWORK_VERDIKTS[homework_status]
     except KeyError:
-        logging.error('Недокументированный статус домашней работы')
+        logger.error('Недокументированный статус домашней работы')
         raise Exception('Недокументированный статус домашней работы')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_tokens():
     """Проверка наличия всех токенов."""
-    if PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
-        return True
-    return False
+    return PRACTICUM_TOKEN and TELEGRAM_TOKEN and TELEGRAM_CHAT_ID
 
 
 def main():
     """Основная логика работы бота."""
-    check_tokens()
-    if check_tokens() is False:
-        logging.critical(
+    msg = ''
+    msg_error = ''
+    if not check_tokens():
+        logger.critical(
+            'Отсутствет одна или несоколько обязательных '
+            'переменных окружения во время запуска бота'
+        )
+        raise Exception(
             'Отсутствет одна или несоколько обязательных '
             'переменных окружения во время запуска бота'
         )
@@ -115,11 +139,16 @@ def main():
             current_timestamp = response.get('current_date')
             homework = check_response(response)
             message = parse_status(homework)
-            send_message(bot, message)
+            if msg != message:
+                msg = message
+                send_message(bot, message)
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            logging.error(message)
+            logger.error(message)
+            if msg_error != message:
+                msg_error = message
+                send_message(bot, message)
             time.sleep(RETRY_TIME)
 
 
